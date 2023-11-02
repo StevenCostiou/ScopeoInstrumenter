@@ -9,7 +9,8 @@ Class {
 		'pc',
 		'packages',
 		'traces',
-		'errors'
+		'errors',
+		'methodLink'
 	],
 	#category : 'Scopeo-Instrumenter',
 	#package : 'Scopeo-Instrumenter'
@@ -44,7 +45,9 @@ ScopeoInstrumenter >> initialize [
 
 	sendNodes := OrderedCollection new.
 	assignmentNodes := OrderedCollection new.
-	errors :=  OrderedCollection new.
+	errors := OrderedCollection new.
+
+	traces := Array new: 100000.
 	pc := 0
 ]
 
@@ -52,6 +55,12 @@ ScopeoInstrumenter >> initialize [
 ScopeoInstrumenter >> instrumentAssignments [
 
 	assignmentNodes do: [ :n | n link: self assignmentLink ]
+]
+
+{ #category : 'instrumentation' }
+ScopeoInstrumenter >> instrumentMethods [
+
+	self methodsToInstrument do: [ :m | m ast link: self methodLink ]
 ]
 
 { #category : 'instrumentation' }
@@ -64,6 +73,7 @@ ScopeoInstrumenter >> instrumentPackages [
 
 	self instrumentSends.
 	self instrumentAssignments.
+	self instrumentMethods.
 	methods do: [ :m |
 		m invalidate.
 		m reflectiveMethod ifNotNil: [ :r |
@@ -79,6 +89,20 @@ ScopeoInstrumenter >> instrumentSends [
 		 n arguments size = 0 or: [
 			 n arguments noneSatisfy: [ :a | a isBlock ] ] ]) do: [ :n |
 		n link: self sendLink ]
+]
+
+{ #category : 'metalinks' }
+ScopeoInstrumenter >> methodLink [
+
+	^ methodLink ifNil: [
+		  methodLink := MetaLink new.
+		  methodLink control: #before.
+		  methodLink arguments: #(selector receiver arguments ).
+		  methodLink optionArgsAsArray: true.
+		  methodLink optionCompileOnLinkInstallation: true.
+		  methodLink metaObject: self.
+		  methodLink selector: #traceMethod:.
+		  ^ methodLink ]
 ]
 
 { #category : 'instrumentation' }
@@ -104,7 +128,8 @@ ScopeoInstrumenter >> sendLink [
 	^ sendLink ifNil: [
 		  sendLink := MetaLink new.
 		  sendLink control: #before.
-		  sendLink arguments: #( context ).
+		  sendLink arguments: #( object selector method ).
+		  sendLink optionArgsAsArray: true.
 		  sendLink optionCompileOnLinkInstallation: true.
 		  sendLink metaObject: self.
 		  sendLink selector: #traceSend:.
@@ -119,18 +144,31 @@ ScopeoInstrumenter >> traceAssignment: anArray [
 		- variable name
 		- variable value
 	Store it in your model."
+		pc := pc + 1.
+	traces atWrap: pc put: anArray 
 	
 ]
 
 { #category : 'tracing' }
-ScopeoInstrumenter >> traceSend: ctx [
+ScopeoInstrumenter >> traceMethod: anArray [
 	"The following data is exposed here.
-	Store it in your model."
-	ctx receiver.
+	Store it in your model.	
+	receiver.
+	arguments"
+		pc := pc + 1.
+	traces atWrap: pc put: anArray 
+]
+
+{ #category : 'tracing' }
+ScopeoInstrumenter >> traceSend: anArray [
+	"The following data is exposed here.
+	Store it in your model.	
 	ctx selector.
 	ctx sender receiver.
-	ctx arguments.
-	ctx sender selector
+	ctx sender selector"
+	pc := pc + 1.
+	traces atWrap: pc put: anArray 
+
 ]
 
 { #category : 'accessing' }
@@ -143,5 +181,6 @@ ScopeoInstrumenter >> uninstall [
 
 	sendLink uninstall.
 	assignmentLink uninstall.
+	methodLink uninstall.
 	self methodsToInstrument do: #recompile.
 ]
