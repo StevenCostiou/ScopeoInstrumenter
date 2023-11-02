@@ -144,7 +144,9 @@ ScopeoInstrumenter >> traceAssignment: anArray [
 		- variable name
 		- variable value
 	Store it in your model."
-		pc := pc + 1.
+	pc := pc + 1.
+	traces atWrap: pc put: #assignment.
+	pc := pc + 1.
 	traces atWrap: pc put: anArray 
 	
 ]
@@ -155,7 +157,9 @@ ScopeoInstrumenter >> traceMethod: anArray [
 	Store it in your model.	
 	receiver.
 	arguments"
-		pc := pc + 1.
+	pc := pc + 1.
+	traces atWrap: pc put: #invoke.
+	pc := pc + 1.
 	traces atWrap: pc put: anArray 
 ]
 
@@ -166,6 +170,8 @@ ScopeoInstrumenter >> traceSend: anArray [
 	ctx selector.
 	ctx sender receiver.
 	ctx sender selector"
+	pc := pc + 1.
+	traces atWrap: pc put: #send.
 	pc := pc + 1.
 	traces atWrap: pc put: anArray 
 
